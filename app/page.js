@@ -849,6 +849,7 @@ export default function ParseIt() {
                       </button>
                     </div>
                   ))}
+                  </div>
                 </div>
               </>
             )}

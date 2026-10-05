@@ -29,8 +29,14 @@ import {
   Check,
   XCircle,
   Scroll,
+  Trophy,
+  Target,
+  Search,
+  Cloud,
+  CloudOff,
 } from "lucide-react";
 import { C, RANKS, rankFor, PATTERN_TAGS } from "../lib/theme";
+import { cloudEnabled, loadCloudData, saveCloudData } from "../lib/cloud";
 
 const TONE_COLORS = { 1: C.seal, 2: C.gold, 3: C.jade, 4: C.indigo, 5: C.muted };
 const TONE_LABELS = {
@@ -59,6 +65,7 @@ const STATS_KEY = "parseit:stats";
 const ACTIVITY_KEY = "parseit:activity";
 const PATTERNS_KEY = "parseit:patterns";
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30, 60];
+const DAILY_GOAL_DEFAULTS = { sentences: 1, newWords: 5, reviews: 10 };
 
 function wordKey(w) {
   return `${w.hanzi}__${w.pinyin}`;
@@ -192,6 +199,12 @@ export default function ParseIt() {
   const [stats, setStats] = useState({ totalSentences: 0 });
   const [activity, setActivity] = useState([]);
   const [patternCounts, setPatternCounts] = useState({});
+  const [dailyStats, setDailyStats] = useState({ date: todayStr(), sentences: 0, newWords: 0, reviews: 0 });
+  const [dailyGoals, setDailyGoals] = useState(DAILY_GOAL_DEFAULTS);
+  const [hskFilter, setHskFilter] = useState("all");
+  const [wordSearch, setWordSearch] = useState("");
+  const [cloudStatus, setCloudStatus] = useState("loading");
+  const [cloudHydrated, setCloudHydrated] = useState(false);
 
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [quizIdx, setQuizIdx] = useState(0);
@@ -219,12 +232,70 @@ export default function ParseIt() {
     setStats(loadJSON(STATS_KEY, { totalSentences: 0 }));
     setActivity(loadJSON(ACTIVITY_KEY, []));
     setPatternCounts(loadJSON(PATTERNS_KEY, {}));
+    setDailyStats(loadJSON("parseit:daily-stats", { date: todayStr(), sentences: 0, newWords: 0, reviews: 0 }));
+    setDailyGoals(loadJSON("parseit:daily-goals", DAILY_GOAL_DEFAULTS));
     setSavedLoaded(true);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!cloudEnabled) {
+        if (!cancelled) { setCloudStatus("local"); setCloudHydrated(true); }
+        return;
+      }
+      try {
+        const cloud = await loadCloudData();
+        if (!cancelled && cloud) {
+          const localWords = loadJSON(STORAGE_KEY, []);
+          const mergedWords = [...(cloud.savedWords || [])];
+          for (const w of localWords) {
+            if (!mergedWords.some((x) => wordKey(x) === wordKey(w))) mergedWords.push(w);
+          }
+          const localStats = loadJSON(STATS_KEY, { totalSentences: 0 });
+          const mergedStats = { totalSentences: Math.max(cloud.stats?.totalSentences || 0, localStats.totalSentences || 0) };
+          const mergedActivity = Array.from(new Set([...(cloud.activity || []), ...loadJSON(ACTIVITY_KEY, [])]));
+          const mergedPatterns = { ...(cloud.patternCounts || {}) };
+          Object.entries(loadJSON(PATTERNS_KEY, {})).forEach(([k,v]) => { mergedPatterns[k] = Math.max(mergedPatterns[k] || 0, v); });
+          setSavedWords(mergedWords); setStats(mergedStats); setActivity(mergedActivity); setPatternCounts(mergedPatterns);
+          if (cloud.dailyStats) setDailyStats(cloud.dailyStats);
+          if (cloud.dailyGoals) setDailyGoals(cloud.dailyGoals);
+          saveJSON(STORAGE_KEY, mergedWords); saveJSON(STATS_KEY, mergedStats); saveJSON(ACTIVITY_KEY, mergedActivity); saveJSON(PATTERNS_KEY, mergedPatterns);
+        }
+        if (!cancelled) setCloudStatus("online");
+      } catch (e) {
+        if (!cancelled) setCloudStatus("error");
+      } finally {
+        if (!cancelled) setCloudHydrated(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!cloudHydrated) return;
+    saveJSON("parseit:daily-stats", dailyStats);
+    saveJSON("parseit:daily-goals", dailyGoals);
+    if (!cloudEnabled) return;
+    const timer = setTimeout(async () => {
+      try {
+        await saveCloudData({ savedWords, stats, activity, patternCounts, dailyStats, dailyGoals });
+        setCloudStatus("online");
+      } catch (e) { setCloudStatus("error"); }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [cloudHydrated, savedWords, stats, activity, patternCounts, dailyStats, dailyGoals]);
 
   function persistSaved(list) {
     setSavedWords(list);
     saveJSON(STORAGE_KEY, list);
+  }
+  function bumpDaily(field) {
+    const t = todayStr();
+    setDailyStats((prev) => {
+      const base = prev.date === t ? prev : { date: t, sentences: 0, newWords: 0, reviews: 0 };
+      return { ...base, [field]: (base[field] || 0) + 1 };
+    });
   }
 
   function isSaved(w) {
@@ -236,6 +307,7 @@ export default function ParseIt() {
       persistSaved(savedWords.filter((s) => wordKey(s) !== wordKey(w)));
     } else {
       persistSaved([...savedWords, { ...w, reviewCount: 0, lastReviewed: null, savedAt: todayStr() }]);
+      bumpDaily("newWords");
     }
   }
 
@@ -250,6 +322,7 @@ export default function ParseIt() {
         : s
     );
     persistSaved(next);
+    bumpDaily("reviews");
   }
 
   function startFlashcards(dueOnly) {
@@ -511,6 +584,7 @@ export default function ParseIt() {
       } catch (e) {}
 
       const nextStats = { totalSentences: (stats.totalSentences || 0) + 1 };
+      bumpDaily("sentences");
       setStats(nextStats);
       saveJSON(STATS_KEY, nextStats);
 
@@ -644,6 +718,28 @@ export default function ParseIt() {
   const { current: rank, next: nextRank } = rankFor(savedWords.length);
   const rankProgress = nextRank ? Math.min(1, (savedWords.length - rank.min) / (nextRank.min - rank.min)) : 1;
   const dueWords = savedWords.filter(isDue);
+  const filteredSavedWords = savedWords.filter((w) => {
+    const q = wordSearch.trim().toLowerCase();
+    const textOk = !q || [w.hanzi, w.pinyin, w.thai].some((v) => String(v || "").toLowerCase().includes(q));
+    const hskOk = hskFilter === "all" || String(w.hsk || "unknown") === hskFilter;
+    return textOk && hskOk;
+  });
+  const todayDaily = dailyStats.date === todayStr() ? dailyStats : { date: todayStr(), sentences: 0, newWords: 0, reviews: 0 };
+  const goalItems = [
+    { key: "sentences", label: "วิเคราะห์ 1 ประโยค", value: todayDaily.sentences, target: dailyGoals.sentences, icon: Scroll },
+    { key: "newWords", label: "เพิ่มคำศัพท์", value: todayDaily.newWords, target: dailyGoals.newWords, icon: BookMarked },
+    { key: "reviews", label: "ทบทวนคำศัพท์", value: todayDaily.reviews, target: dailyGoals.reviews, icon: GraduationCap },
+  ];
+  const dailyComplete = goalItems.every((g) => g.value >= g.target);
+  const achievements = [
+    { id: "first", title: "ก้าวแรกในยุทธภพ", desc: "วิเคราะห์ประโยคแรก", icon: "⚔️", unlocked: stats.totalSentences >= 1 },
+    { id: "words10", title: "ศิษย์ใหม่", desc: "สะสม 10 คำ", icon: "🗡️", unlocked: savedWords.length >= 10 },
+    { id: "words50", title: "ผู้รู้ถ้อยคำ", desc: "สะสม 50 คำ", icon: "🏮", unlocked: savedWords.length >= 50 },
+    { id: "words100", title: "คลังร้อยคำ", desc: "สะสม 100 คำ", icon: "👑", unlocked: savedWords.length >= 100 },
+    { id: "streak7", title: "เจ็ดวันไม่ขาด", desc: "เรียนต่อเนื่อง 7 วัน", icon: "🔥", unlocked: streak >= 7 },
+    { id: "sent100", title: "อ่านตำราร้อยบท", desc: "วิเคราะห์ 100 ประโยค", icon: "📜", unlocked: stats.totalSentences >= 100 },
+    { id: "daily", title: "功成 · ภารกิจสำเร็จ", desc: "ทำเป้าหมายวันนี้ครบ", icon: "🏯", unlocked: dailyComplete },
+  ];
 
   // streak: consecutive days up to today present in activity
   let streak = 0;
@@ -670,7 +766,7 @@ export default function ParseIt() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: C.parchment, fontFamily: "'Noto Sans Thai', 'Inter', sans-serif", color: C.ink }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 50% -10%, rgba(184,145,62,0.12), transparent 38%), linear-gradient(180deg, #F7F0DE 0%, #F2E9D1 100%)", fontFamily: "'Noto Sans Thai', 'Inter', sans-serif", color: C.ink }}>
       <style>{`
         body { background: ${C.parchment}; }
         .cj-textarea::placeholder { color: ${C.faint}; }
@@ -704,7 +800,12 @@ export default function ParseIt() {
               </p>
             </div>
           </div>
-          <button onClick={() => setShowSaved((s) => !s)} style={sealBtnOutline(showSaved)}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "11px", color: cloudStatus === "online" ? C.jade : C.inkSoft }}>
+              {cloudStatus === "online" ? <Cloud size={13} /> : <CloudOff size={13} />}
+              {cloudStatus === "online" ? "บันทึกออนไลน์" : cloudStatus === "local" ? "เก็บในเครื่อง" : cloudStatus === "error" ? "ซิงก์มีปัญหา" : "กำลังเชื่อมต่อ"}
+            </div>
+            <button onClick={() => setShowSaved((s) => !s)} style={sealBtnOutline(showSaved)}>
             <BookMarked size={15} />
             ตำราคำศัพท์ {savedLoaded ? `(${savedWords.length})` : ""}
           </button>
@@ -721,13 +822,27 @@ export default function ParseIt() {
                 <button onClick={() => startFlashcards(false)} style={{ ...sealBtnFilled(), marginBottom: "12px" }}>
                   <GraduationCap size={15} /> เล่นแฟลชการ์ด ({savedWords.length} คำ)
                 </button>
-                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                  {savedWords.map((w, i) => (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <div style={{ position: "relative", flex: "1 1 220px" }}>
+                      <Search size={14} style={{ position: "absolute", left: 10, top: 11, color: C.faint }} />
+                      <input value={wordSearch} onChange={(e) => setWordSearch(e.target.value)} placeholder="ค้นหาคำศัพท์ / pinyin / ความหมาย"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px 8px 30px", border: "1px solid #D8C99F", borderRadius: 4, background: "#FBF6E8", color: C.ink }} />
+                    </div>
+                    <select value={hskFilter} onChange={(e) => setHskFilter(e.target.value)} style={{ border: "1px solid #D8C99F", borderRadius: 4, background: "#FBF6E8", color: C.ink, padding: "8px 10px" }}>
+                      <option value="all">ทุกระดับ HSK</option>
+                      {[1,2,3,4,5,6].map((n) => <option key={n} value={String(n)}>HSK {n}</option>)}
+                      <option value="unknown">ยังไม่ระบุ HSK</option>
+                    </select>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  {filteredSavedWords.map((w, i) => (
                     <div key={wordKey(w) + i} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "9px 4px", borderBottom: i < savedWords.length - 1 ? `1px solid ${C.cardEdge}` : "none", cursor: "pointer" }} onClick={() => openPreview(w)}>
                       <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "19px", minWidth: "44px" }}>{w.hanzi}</div>
                       <ToneMark tone={w.tone} />
                       <div style={{ fontSize: "14px", color: TONE_COLORS[w.tone] || TONE_COLORS[5], minWidth: "70px" }}>{w.pinyin}</div>
                       <div style={{ fontSize: "13.5px", color: C.inkSoft, flex: 1 }}>{w.thai}</div>
+                      {w.hsk && <span style={{ fontSize: "10px", color: C.indigo, border: "1px solid " + C.indigo, padding: "2px 5px", borderRadius: 3 }}>HSK {w.hsk}</span>}
                       {isDue(w) && <span style={{ fontSize: "10px", color: C.seal, fontWeight: 700 }}>●ครบทบทวน</span>}
                       <button onClick={(e) => { e.stopPropagation(); removeSaved(w); }} style={{ background: "none", border: "none", color: C.faint, cursor: "pointer", padding: "4px", display: "flex" }} aria-label={`ลบ ${w.hanzi}`}>
                         <X size={15} />
@@ -744,6 +859,7 @@ export default function ParseIt() {
         <div style={{ display: "flex", gap: "4px", marginTop: "26px", borderBottom: `1px solid ${C.cardEdge}`, flexWrap: "wrap" }}>
           <button onClick={() => setActiveTab("parse")} style={tabStyle(activeTab === "parse")}><Scroll size={14} />แยกคำ</button>
           <button onClick={() => setActiveTab("dashboard")} style={tabStyle(activeTab === "dashboard")}><LayoutDashboard size={14} />แดชบอร์ด</button>
+          <button onClick={() => setActiveTab("jianghu")} style={tabStyle(activeTab === "jianghu")}><Trophy size={14} />ยุทธภพ</button>
           <button onClick={() => setActiveTab("quiz")} style={tabStyle(activeTab === "quiz")}><HelpCircle size={14} />ควิซ</button>
           <button onClick={() => setActiveTab("practice")} style={tabStyle(activeTab === "practice")}><PencilLine size={14} />ฝึกแต่งประโยค</button>
         </div>
@@ -977,6 +1093,32 @@ export default function ParseIt() {
                 พิมพ์หรือวาดประโยคภาษาจีนด้านบนแล้วกด "แยกคำ" เพื่อเริ่มต้น
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "jianghu" && (
+          <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div style={cardBox({ padding: "20px", background: "linear-gradient(135deg, #FBF6E8, #F3E7C4)" })}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                <div><div style={{ fontFamily: "'Noto Serif Thai', serif", fontSize: "20px", fontWeight: 700 }}>每日修行 · เป้าหมายวันนี้</div><div style={{ fontSize: "12px", color: C.inkSoft, marginTop: "3px" }}>ภารกิจสั้น ๆ เพื่อรักษาวรยุทธ์ให้ต่อเนื่อง</div></div>
+                <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "24px", color: C.seal }}>{dailyComplete ? "功成" : "修行"}</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "18px" }}>
+                {goalItems.map((g) => { const Icon = g.icon; const pct = Math.min(100, Math.round((g.value / Math.max(1, g.target)) * 100)); return <div key={g.key}><div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", marginBottom: "4px" }}><span style={{ display: "flex", alignItems: "center", gap: "6px" }}><Icon size={14}/>{g.label}</span><span>{Math.min(g.value,g.target)} / {g.target}</span></div><div style={{ height: 7, background: C.cardEdge, borderRadius: 4, overflow: "hidden" }}><div style={{ width: pct + "%", height: "100%", background: g.value >= g.target ? C.jade : C.indigo }} /></div></div>; })}
+              </div>
+              <div style={{ marginTop: "16px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <button onClick={() => setDailyGoals((g) => ({ ...g, newWords: g.newWords === 5 ? 10 : 5 }))} style={sealBtnOutline(false)}><Target size={14}/>เป้าคำศัพท์ {dailyGoals.newWords}</button>
+                <button onClick={() => setDailyGoals((g) => ({ ...g, reviews: g.reviews === 10 ? 20 : 10 }))} style={sealBtnOutline(false)}><GraduationCap size={14}/>เป้าทบทวน {dailyGoals.reviews}</button>
+              </div>
+            </div>
+            <div style={cardBox({ padding: "20px" })}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}><Trophy size={17} color={C.gold}/><strong>เหรียญตราความสำเร็จ</strong><span style={{ fontSize: "11px", color: C.faint }}>ปลดล็อก {achievements.filter((a) => a.unlocked).length}/{achievements.length}</span></div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: "9px" }}>{achievements.map((a) => <div key={a.id} style={{ border: "1px solid " + (a.unlocked ? C.gold : C.cardEdge), background: a.unlocked ? "#FBF2D2" : C.card, borderRadius: 5, padding: "12px", opacity: a.unlocked ? 1 : 0.55 }}><div style={{ fontSize: "24px" }}>{a.icon}</div><div style={{ fontWeight: 700, fontSize: "12.5px", marginTop: 4 }}>{a.title}</div><div style={{ fontSize: "11px", color: C.inkSoft, marginTop: 2 }}>{a.desc}</div></div>)}</div>
+            </div>
+            <div style={cardBox({ padding: "20px" })}>
+              <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "10px" }}>ขั้นภูมิยุทธภพ</div>
+              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}><div style={{ width: 58, height: 58, borderRadius: "50%", border: "2px solid " + C.gold, display: "grid", placeItems: "center", fontSize: "25px", background: "#F7EBCB" }}>⚔</div><div style={{ flex: 1 }}><div style={{ fontFamily: "'Noto Serif Thai', serif", fontSize: "18px", fontWeight: 700 }}>{rank.name}</div><div style={{ fontSize: "12px", color: C.inkSoft }}>{savedWords.length} คำ · {stats.totalSentences || 0} ประโยค · ต่อเนื่อง {streak} วัน</div><div style={{ marginTop: 7, height: 6, background: C.cardEdge, borderRadius: 4 }}><div style={{ width: (rankProgress * 100) + "%", height: "100%", background: C.seal, borderRadius: 4 }}/></div></div></div>
+            </div>
           </div>
         )}
 

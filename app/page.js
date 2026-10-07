@@ -810,6 +810,7 @@ export default function ParseIt() {
             ตำราคำศัพท์ {savedLoaded ? `(${savedWords.length})` : ""}
           </button>
         </div>
+      </div>
 
         {showSaved && (
           <div style={cardBox()}>

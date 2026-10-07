@@ -1356,45 +1356,51 @@ export default function ParseIt() {
       </div>
 
       {flashOpen && flashWord ? (
-        <div onClick={closeFlash} style={{ position: "fixed", inset: 0, background: "rgba(33,28,22,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "20px" }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: C.parchment, borderRadius: "6px", padding: "24px", maxWidth: "380px", width: "100%", position: "relative", border: `1px solid ${C.cardEdge}` }}>
-            <button onClick={closeFlash} aria-label="ปิดแฟลชการ์ด" style={{ position: "absolute", top: "14px", right: "14px", background: "none", border: "none", color: C.inkSoft, cursor: "pointer", padding: "4px", display: "flex" }}>
-              <X size={18} />
-            </button>
-            <div style={{ textAlign: "center", fontSize: "12px", color: C.inkSoft, marginBottom: "14px" }}>
-              การ์ดที่ {flashIdx + 1} / {flashOrder.length}
-            </div>
-            <div onClick={flipFlash} style={{ cursor: "pointer", background: C.card, border: `1px solid ${C.cardEdge}`, borderRadius: "4px", padding: "36px 20px", textAlign: "center", minHeight: "220px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "10px" }}>
-              {!flashFlipped ? (
-                <>
-                  <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "64px", fontWeight: 700 }}>{flashWord.hanzi}</div>
-                  <div style={{ fontSize: "12px", color: C.faint, marginTop: "6px" }}>แตะการ์ดเพื่อดูคำตอบ</div>
-                </>
-              ) : (
-                <>
+        <div
+          onClick={closeFlash}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(33,28,22,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+            padding: "20px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: C.parchment,
+              borderRadius: "6px",
+              padding: "24px",
+              maxWidth: "380px",
+              width: "100%",
+            }}
+          >
+            <button onClick={closeFlash}>ปิด</button>
+            <div style={{ textAlign: "center", margin: "16px 0" }}>
+              <div style={{ fontSize: "12px", color: C.inkSoft }}>
+                การ์ดที่ {flashIdx + 1} / {flashOrder.length}
+              </div>
+              <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "56px", fontWeight: 700 }}>
+                {flashWord.hanzi}
+              </div>
+              {flashFlipped ? (
+                <div>
                   <ToneMark tone={flashWord.tone} />
-                  <div style={{ fontSize: "24px", fontWeight: 600, color: TONE_COLORS[flashWord.tone] || TONE_COLORS[5] }}>{flashWord.pinyin}</div>
-                  <div style={{ fontSize: "18px", color: C.ink }}>{flashWord.thai}</div>
-                  {flashWord.example?.hanzi && (
-                    <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${C.cardEdge}`, width: "100%" }}>
-                      <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "15px", color: C.ink }}>{flashWord.example.hanzi}</div>
-                      <div style={{ fontSize: "12px", color: C.indigo, marginTop: "2px" }}>{flashWord.example.pinyin}</div>
-                      <div style={{ fontSize: "12px", color: C.inkSoft, marginTop: "2px" }}>{flashWord.example.thai}</div>
-                    </div>
-                  )}
-                </>
+                  <div>{flashWord.pinyin}</div>
+                  <div>{flashWord.thai}</div>
+                </div>
+              ) : (
+                <div style={{ color: C.faint }}>แตะการ์ดเพื่อดูคำตอบ</div>
               )}
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", gap: "8px" }}>
-              <button onClick={prevCard} style={{ display: "flex", alignItems: "center", gap: "4px", background: C.card, border: `1px solid ${C.cardEdge}`, borderRadius: "4px", padding: "8px 12px", fontSize: "12.5px", color: C.inkSoft, cursor: "pointer" }}>
-                <ChevronLeft size={15} />ก่อนหน้า
-              </button>
-              <button onClick={shuffleFlash} style={{ display: "flex", alignItems: "center", gap: "5px", background: C.card, border: `1px solid ${C.cardEdge}`, borderRadius: "4px", padding: "8px 12px", fontSize: "12.5px", color: C.inkSoft, cursor: "pointer" }}>
-                <Shuffle size={14} />สลับ
-              </button>
-              <button onClick={nextCard} style={{ display: "flex", alignItems: "center", gap: "4px", background: C.indigo, border: "none", borderRadius: "4px", padding: "8px 12px", fontSize: "12.5px", color: "#F6EFD9", cursor: "pointer", fontWeight: 600 }}>
-                ถัดไป<ChevronRight size={15} />
-              </button>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
+              <button onClick={prevCard}>ก่อนหน้า</button>
+              <button onClick={flipFlash}>เปิดคำตอบ</button>
+              <button onClick={nextCard}>ถัดไป</button>
             </div>
           </div>
         </div>

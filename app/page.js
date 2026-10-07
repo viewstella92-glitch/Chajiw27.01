@@ -731,16 +731,6 @@ export default function ParseIt() {
     { key: "reviews", label: "ทบทวนคำศัพท์", value: todayDaily.reviews, target: dailyGoals.reviews, icon: GraduationCap },
   ];
   const dailyComplete = goalItems.every((g) => g.value >= g.target);
-  const achievements = [
-    { id: "first", title: "ก้าวแรกในยุทธภพ", desc: "วิเคราะห์ประโยคแรก", icon: "⚔️", unlocked: stats.totalSentences >= 1 },
-    { id: "words10", title: "ศิษย์ใหม่", desc: "สะสม 10 คำ", icon: "🗡️", unlocked: savedWords.length >= 10 },
-    { id: "words50", title: "ผู้รู้ถ้อยคำ", desc: "สะสม 50 คำ", icon: "🏮", unlocked: savedWords.length >= 50 },
-    { id: "words100", title: "คลังร้อยคำ", desc: "สะสม 100 คำ", icon: "👑", unlocked: savedWords.length >= 100 },
-    { id: "streak7", title: "เจ็ดวันไม่ขาด", desc: "เรียนต่อเนื่อง 7 วัน", icon: "🔥", unlocked: streak >= 7 },
-    { id: "sent100", title: "อ่านตำราร้อยบท", desc: "วิเคราะห์ 100 ประโยค", icon: "📜", unlocked: stats.totalSentences >= 100 },
-    { id: "daily", title: "功成 · ภารกิจสำเร็จ", desc: "ทำเป้าหมายวันนี้ครบ", icon: "🏯", unlocked: dailyComplete },
-  ];
-
   // streak: consecutive days up to today present in activity
   let streak = 0;
   {
@@ -753,6 +743,16 @@ export default function ParseIt() {
       } else break;
     }
   }
+
+  const achievements = [
+    { id: "first", title: "ก้าวแรกในยุทธภพ", desc: "วิเคราะห์ประโยคแรก", icon: "⚔️", unlocked: stats.totalSentences >= 1 },
+    { id: "words10", title: "ศิษย์ใหม่", desc: "สะสม 10 คำ", icon: "🗡️", unlocked: savedWords.length >= 10 },
+    { id: "words50", title: "ผู้รู้ถ้อยคำ", desc: "สะสม 50 คำ", icon: "🏮", unlocked: savedWords.length >= 50 },
+    { id: "words100", title: "คลังร้อยคำ", desc: "สะสม 100 คำ", icon: "👑", unlocked: savedWords.length >= 100 },
+    { id: "streak7", title: "เจ็ดวันไม่ขาด", desc: "เรียนต่อเนื่อง 7 วัน", icon: "🔥", unlocked: streak >= 7 },
+    { id: "sent100", title: "อ่านตำราร้อยบท", desc: "วิเคราะห์ 100 ประโยค", icon: "📜", unlocked: stats.totalSentences >= 100 },
+    { id: "daily", title: "功成 · ภารกิจสำเร็จ", desc: "ทำเป้าหมายวันนี้ครบ", icon: "🏯", unlocked: dailyComplete },
+  ];
 
   // last 84 days heatmap
   const heatDays = [];
@@ -1355,7 +1355,7 @@ export default function ParseIt() {
         )}
       </div>
 
-      {flashOpen && flashWord && (
+      {flashOpen && flashWord ? (
         <div onClick={closeFlash} style={{ position: "fixed", inset: 0, background: "rgba(33,28,22,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "20px" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: C.parchment, borderRadius: "6px", padding: "24px", maxWidth: "380px", width: "100%", position: "relative", border: `1px solid ${C.cardEdge}` }}>
             <button onClick={closeFlash} aria-label="ปิดแฟลชการ์ด" style={{ position: "absolute", top: "14px", right: "14px", background: "none", border: "none", color: C.inkSoft, cursor: "pointer", padding: "4px", display: "flex" }}>
@@ -1398,7 +1398,7 @@ export default function ParseIt() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

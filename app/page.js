@@ -363,11 +363,22 @@ export default function ParseIt() {
     setFlashOpen(false);
   }
   function flipFlash() {
-    setFlashFlipped((f) => {
-      const next = !f;
-      if (next && flashWord) markReviewed(flashWord);
-      return next;
-    });
+    setFlashFlipped((f) => !f);
+  }
+  function rateFlashRemembered() {
+    if (!flashWord) return;
+    markReviewed(flashWord);
+    nextCard();
+  }
+  function rateFlashForgotten() {
+    if (!flashWord) return;
+    const next = savedWords.map((s) =>
+      wordKey(s) === wordKey(flashWord)
+        ? { ...s, reviewCount: 0, lastReviewed: todayStr() }
+        : s
+    );
+    persistSaved(next);
+    nextCard();
   }
   const flashWord = flashOpen && flashOrder.length > 0 ? savedWords[flashOrder[flashIdx]] : null;
 
@@ -1455,56 +1466,40 @@ export default function ParseIt() {
       </div>
 
       {flashOpen && flashWord ? (
-        <div
-          onClick={closeFlash}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(33,28,22,0.6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 50,
-            padding: "20px",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: C.parchment,
-              borderRadius: "6px",
-              padding: "24px",
-              maxWidth: "380px",
-              width: "100%",
-            }}
-          >
-            <button onClick={closeFlash}>ปิด</button>
-            <div style={{ textAlign: "center", margin: "16px 0" }}>
-              <div style={{ fontSize: "12px", color: C.inkSoft }}>
-                การ์ดที่ {flashIdx + 1} / {flashOrder.length}
-              </div>
-              <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "56px", fontWeight: 700 }}>
-                {flashWord.hanzi}
-              </div>
-              {flashFlipped ? (
-                <div>
-                  <ToneMark tone={flashWord.tone} />
-                  <div>{flashWord.pinyin}</div>
-                  <div>{flashWord.thai}</div>
-                </div>
-              ) : (
-                <div style={{ color: C.faint }}>แตะการ์ดเพื่อดูคำตอบ</div>
-              )}
+        <div onClick={closeFlash} style={{ position: "fixed", inset: 0, background: "rgba(33,28,22,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "20px" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.parchment, borderRadius: "8px", padding: "20px", maxWidth: "420px", width: "100%" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ fontSize: "12px", color: C.inkSoft }}>การ์ดที่ {flashIdx + 1} / {flashOrder.length}</div>
+              <button onClick={closeFlash} style={sealBtnOutline(false, { padding: "6px 10px", fontSize: "12px" })}>ปิด</button>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
-              <button onClick={prevCard}>ก่อนหน้า</button>
-              <button onClick={flipFlash}>เปิดคำตอบ</button>
-              <button onClick={nextCard}>ถัดไป</button>
+            <div onClick={flipFlash} role="button" tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flipFlash(); } }}
+              style={{ minHeight: "300px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", background: "#FBF6E8", border: `1px solid ${C.cardEdge}`, borderRadius: "8px", padding: "24px", cursor: "pointer", userSelect: "none" }}>
+              <div style={{ fontSize: "11px", color: C.inkSoft, marginBottom: "12px" }}>แตะการ์ดเพื่อ{flashFlipped ? "ซ่อนคำตอบ" : "ดูคำตอบ"}</div>
+              <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "64px", fontWeight: 700 }}>{flashWord.hanzi}</div>
+              {flashFlipped ? (
+                <div style={{ marginTop: "18px" }}>
+                  <ToneMark tone={flashWord.tone} />
+                  <div style={{ fontSize: "20px", color: C.indigo }}>{flashWord.pinyin}</div>
+                  <div style={{ fontSize: "17px", color: C.inkSoft, marginTop: "5px" }}>{flashWord.thai}</div>
+                </div>
+              ) : <div style={{ marginTop: "18px", color: C.faint, fontSize: "13px" }}>นึกคำแปลในใจก่อน แล้วแตะเพื่อเฉลย</div>}
+            </div>
+            <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
+              <button onClick={prevCard} style={sealBtnOutline(false, { flex: 1, justifyContent: "center" })}>ก่อนหน้า</button>
+              {!flashFlipped ? (
+                <button onClick={flipFlash} style={sealBtnFilled({ flex: 1, justifyContent: "center" })}>เปิดคำตอบ</button>
+              ) : (
+                <>
+                  <button onClick={rateFlashForgotten} style={{ ...sealBtnOutline(false), flex: 1, justifyContent: "center", borderColor: C.seal, color: C.seal }}>ยังจำไม่ได้</button>
+                  <button onClick={rateFlashRemembered} style={{ ...sealBtnFilled(), flex: 1, justifyContent: "center", background: C.jade }}>จำได้</button>
+                </>
+              )}
+              <button onClick={nextCard} style={sealBtnOutline(false, { flex: 1, justifyContent: "center" })}>ถัดไป</button>
             </div>
           </div>
         </div>
-      ) : null}
-    </div>
+      ) : null}  </div>
   );
 }
 

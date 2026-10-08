@@ -32,7 +32,6 @@ export default function DailyTraining({
         <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "11px" }}>
           {items.map((item) => {
             const Icon = item.icon;
-            const Icon = item.icon;
             const done = item.value >= item.target;
             const pct = Math.min(100, Math.round((item.value / Math.max(1, item.target)) * 100));
             return (

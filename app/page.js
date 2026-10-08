@@ -67,7 +67,7 @@ const STATS_KEY = "parseit:stats";
 const ACTIVITY_KEY = "parseit:activity";
 const PATTERNS_KEY = "parseit:patterns";
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30, 60];
-const DAILY_GOAL_DEFAULTS = { sentences: 1, newWords: 5, reviews: 10 };
+const DAILY_GOAL_DEFAULTS = { sentences: 1, newWords: 5, reviews: 10, listening: 5 };
 
 function wordKey(w) {
   return `${w.hanzi}__${w.pinyin}`;
@@ -259,7 +259,7 @@ export default function ParseIt() {
     setStats(loadJSON(STATS_KEY, { totalSentences: 0 }));
     setActivity(loadJSON(ACTIVITY_KEY, []));
     setPatternCounts(loadJSON(PATTERNS_KEY, {}));
-    setDailyStats(loadJSON("parseit:daily-stats", { date: todayStr(), sentences: 0, newWords: 0, reviews: 0 }));
+    setDailyStats(loadJSON("parseit:daily-stats", { date: todayStr(), sentences: 0, newWords: 0, reviews: 0, listening: 0 }));
     setDailyGoals(loadJSON("parseit:daily-goals", DAILY_GOAL_DEFAULTS));
     setSavedLoaded(true);
   }, []);
@@ -344,7 +344,7 @@ export default function ParseIt() {
   function bumpDaily(field) {
     const t = todayStr();
     setDailyStats((prev) => {
-      const base = prev.date === t ? prev : { date: t, sentences: 0, newWords: 0, reviews: 0 };
+      const base = prev.date === t ? prev : { date: t, sentences: 0, newWords: 0, reviews: 0, listening: 0 };
       return { ...base, [field]: (base[field] || 0) + 1 };
     });
   }
@@ -1027,7 +1027,7 @@ export default function ParseIt() {
             rank={rank}
             onReview={() => startFlashcards(true)}
             onLearn={() => { setActiveTab("parse"); setInput(""); }}
-            onAnalyze={() => { setActiveTab("parse"); setInput(EXAMPLE_SENTENCE); }}
+            onAnalyze={() => { setActiveTab("parse"); setInput(EXAMPLE_SENTENCE); }}\n            onListening={() => { window.location.href = "/listening"; }}
           />
         )}
 

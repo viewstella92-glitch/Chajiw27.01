@@ -868,6 +868,7 @@ export default function ParseIt() {
                     const open = expandedKey === k;
                     const covered = hideMeaning && !open;
                     const bd = breakdowns[k];
+                    const ex = typeof w.example === "string" ? { hanzi: w.example } : w.example;
                     const chip = isDue(w) ? "ครบกำหนดแล้ว" : nextDueText(w);
                     return (
                       <div key={k + i} style={{ borderBottom: `1px solid ${C.cardEdge}` }}>
@@ -899,11 +900,11 @@ export default function ParseIt() {
                               {w.hsk && <span style={{ fontSize: "11px", border: `1px solid ${C.indigo}`, color: C.indigo, padding: "3px 7px", borderRadius: 3 }}>HSK {w.hsk}</span>}
                               {w.role && <span style={{ fontSize: "11px", border: `1px solid ${C.cardEdge}`, padding: "3px 7px", borderRadius: 3 }}>{w.role}</span>}
                             </div>
-                            {w.example && (
+                            {ex?.hanzi && (
                               <div style={{ marginTop: "11px", padding: "10px", borderLeft: `3px solid ${C.gold}` }}>
-                                <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "16px" }}>{w.example}</div>
-                                {w.examplePinyin && <div style={{ color: C.indigo, fontSize: "12px", marginTop: "3px" }}>{w.examplePinyin}</div>}
-                                {w.exampleMeaning && <div style={{ color: C.inkSoft, fontSize: "12px", marginTop: "3px" }}>{w.exampleMeaning}</div>}
+                                <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "16px" }}>{ex.hanzi}</div>
+                                {ex.pinyin && <div style={{ color: C.indigo, fontSize: "12px", marginTop: "3px" }}>{ex.pinyin}</div>}
+                                {ex.thai && <div style={{ color: C.inkSoft, fontSize: "12px", marginTop: "3px" }}>{ex.thai}</div>}
                               </div>
                             )}
                             <div style={{ marginTop: "10px", fontSize: "11.5px", color: C.inkSoft }}>

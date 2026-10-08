@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Scroll, BookMarked, GraduationCap, ArrowRight, Flame, Check, Swords } from "lucide-react";
+import { Scroll, BookMarked, GraduationCap, ArrowRight, Flame, Check, Swords, Headphones } from "lucide-react";
 
 export default function DailyTraining({
   todayDaily, dailyGoals, dailyComplete, dueWords, savedWords, streak, rank,
@@ -10,7 +10,7 @@ export default function DailyTraining({
   const items = [
     { key: "reviews", label: "ทบทวนคำที่ถึงกำหนด", value: todayDaily.reviews, target: dailyGoals.reviews, icon: GraduationCap, action: onReview },
     { key: "newWords", label: "เพิ่มคำศัพท์ใหม่", value: todayDaily.newWords, target: dailyGoals.newWords, icon: BookMarked, action: onLearn },
-    { key: "sentences", label: "วิเคราะห์ประโยค", value: todayDaily.sentences, target: dailyGoals.sentences, icon: Scroll, action: onAnalyze },
+    { key: "sentences", label: "วิเคราะห์ประโยค", value: todayDaily.sentences, target: dailyGoals.sentences, icon: Scroll, action: onAnalyze },\n    { key: "listening", label: "ฝึกฟังภาษาจีน", value: todayDaily.listening || 0, target: dailyGoals.listening || 5, icon: Headphones, action: onListening },
   ];
   const next = items.find((x) => x.value < x.target);
   const remaining = items.reduce((n, x) => n + Math.max(0, x.target - x.value), 0);
@@ -54,7 +54,7 @@ export default function DailyTraining({
           {next ? (
             <button onClick={next.action} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#9B2924", color: "#F6EFD9", border: "none", borderRadius: "4px", padding: "11px 16px", fontSize: "13.5px", fontWeight: 700, cursor: "pointer" }}>
               <Icon size={16} />
-              {next.key === "reviews" ? "เริ่มทบทวน" : next.key === "newWords" ? "ไปเรียนคำใหม่" : "วิเคราะห์ประโยค"}
+              {next.key === "reviews" ? "เริ่มทบทวน" : next.key === "newWords" ? "ไปเรียนคำใหม่" : next.key === "sentences" ? "วิเคราะห์ประโยค" : "เริ่มฝึกฟัง"}
               <ArrowRight size={15} />
             </button>
           ) : (

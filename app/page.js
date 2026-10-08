@@ -71,7 +71,17 @@ function wordKey(w) {
   return `${w.hanzi}__${w.pinyin}`;
 }
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + day;
+}
+function formatDateLocal(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + day;
 }
 function daysBetween(isoA, isoB) {
   const a = new Date(isoA + "T00:00:00");
@@ -759,7 +769,7 @@ export default function ParseIt() {
   {
     let d = new Date();
     for (;;) {
-      const iso = d.toISOString().slice(0, 10);
+      const iso = formatDateLocal(d);
       if (activity.includes(iso)) {
         streak++;
         d.setDate(d.getDate() - 1);
@@ -784,7 +794,7 @@ export default function ParseIt() {
     for (let i = 83; i >= 0; i--) {
       const dd = new Date(d);
       dd.setDate(d.getDate() - i);
-      heatDays.push(dd.toISOString().slice(0, 10));
+      heatDays.push(formatDateLocal(dd));
     }
   }
 

@@ -50,7 +50,8 @@ function nextInterval(streak) { return [1,2,4,7,14,30][Math.min(streak, 5)]; }
 
 export default function ListeningPage() {
   const [words, setWords] = useState([]);
-  const [loading, setLoading] = useState(true);\n  const [srs, setSrs] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [srs, setSrs] = useState({});
   const [mode, setMode] = useState("meaning");
   const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);

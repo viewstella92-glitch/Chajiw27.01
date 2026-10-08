@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, ChevronRight, Volume2, RotateCcw, Headphones, Trophy } from "lucide-react";
-import { cloudEnabled, loadCloudData } from "../../lib/cloud";
+import { cloudEnabled, loadCloudData, saveCloudData } from "../../lib/cloud";
 import { C } from "../../lib/theme";
 
 const STORAGE_KEY = "parseit:saved-words";
@@ -34,7 +34,7 @@ export default function ListeningPage() {
   const [selected, setSelected] = useState(null);
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(0);
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(false);\n  const [recorded, setRecorded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;

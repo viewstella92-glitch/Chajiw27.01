@@ -61,6 +61,7 @@ const CANVAS_SIZE = 260;
 const EXAMPLE_SENTENCE = "我明天要去图书馆看书。";
 
 const STORAGE_KEY = "parseit:saved-words";
+const DELETED_KEY = "parseit:deleted-words";
 const STATS_KEY = "parseit:stats";
 const ACTIVITY_KEY = "parseit:activity";
 const PATTERNS_KEY = "parseit:patterns";
@@ -196,6 +197,7 @@ export default function ParseIt() {
   const [revealed, setRevealed] = useState(false);
 
   const [savedWords, setSavedWords] = useState([]);
+  const [deletedWords, setDeletedWords] = useState([]);
   const [savedLoaded, setSavedLoaded] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
 
@@ -241,6 +243,7 @@ export default function ParseIt() {
 
   useEffect(() => {
     setSavedWords(loadJSON(STORAGE_KEY, []));
+    setDeletedWords(loadJSON(DELETED_KEY, []));
     setStats(loadJSON(STATS_KEY, { totalSentences: 0 }));
     setActivity(loadJSON(ACTIVITY_KEY, []));
     setPatternCounts(loadJSON(PATTERNS_KEY, {}));
@@ -260,19 +263,39 @@ export default function ParseIt() {
         const cloud = await loadCloudData();
         if (!cancelled && cloud) {
           const localWords = loadJSON(STORAGE_KEY, []);
-          const mergedWords = [...(cloud.savedWords || [])];
-          for (const w of localWords) {
-            if (!mergedWords.some((x) => wordKey(x) === wordKey(w))) mergedWords.push(w);
+          const localDeleted = loadJSON(DELETED_KEY, []);
+          const cloudWords = Array.isArray(cloud.savedWords) ? cloud.savedWords : [];
+          const cloudDeleted = Array.isArray(cloud.deletedWords) ? cloud.deletedWords : [];
+          const wordMap = new Map();
+          for (const raw of [...cloudWords, ...localWords]) {
+            if (!raw?.hanzi) continue;
+            const w = { ...raw, updatedAt: raw.updatedAt || (raw.savedAt ? raw.savedAt + "T00:00:00.000Z" : nowIso()) };
+            const k = wordKey(w);
+            const prev = wordMap.get(k);
+            if (!prev || new Date(w.updatedAt).getTime() >= new Date(prev.updatedAt).getTime()) wordMap.set(k, w);
           }
+          const tombMap = new Map();
+          for (const raw of [...cloudDeleted, ...localDeleted]) {
+            if (!raw?.key && !raw?.hanzi) continue;
+            const key = raw.key || wordKey(raw);
+            const deletedAt = raw.deletedAt || raw.updatedAt || nowIso();
+            const prev = tombMap.get(key);
+            if (!prev || new Date(deletedAt).getTime() >= new Date(prev.deletedAt).getTime()) tombMap.set(key, { key, deletedAt });
+          }
+          const mergedWords = Array.from(wordMap.values()).filter((w) => {
+            const tomb = tombMap.get(wordKey(w));
+            return !tomb || new Date(w.updatedAt).getTime() > new Date(tomb.deletedAt).getTime();
+          });
+          const mergedDeleted = Array.from(tombMap.values());
           const localStats = loadJSON(STATS_KEY, { totalSentences: 0 });
           const mergedStats = { totalSentences: Math.max(cloud.stats?.totalSentences || 0, localStats.totalSentences || 0) };
           const mergedActivity = Array.from(new Set([...(cloud.activity || []), ...loadJSON(ACTIVITY_KEY, [])]));
           const mergedPatterns = { ...(cloud.patternCounts || {}) };
           Object.entries(loadJSON(PATTERNS_KEY, {})).forEach(([k,v]) => { mergedPatterns[k] = Math.max(mergedPatterns[k] || 0, v); });
-          setSavedWords(mergedWords); setStats(mergedStats); setActivity(mergedActivity); setPatternCounts(mergedPatterns);
+          setSavedWords(mergedWords); setDeletedWords(mergedDeleted); setStats(mergedStats); setActivity(mergedActivity); setPatternCounts(mergedPatterns);
           if (cloud.dailyStats) setDailyStats(cloud.dailyStats);
           if (cloud.dailyGoals) setDailyGoals(cloud.dailyGoals);
-          saveJSON(STORAGE_KEY, mergedWords); saveJSON(STATS_KEY, mergedStats); saveJSON(ACTIVITY_KEY, mergedActivity); saveJSON(PATTERNS_KEY, mergedPatterns);
+          saveJSON(STORAGE_KEY, mergedWords); saveJSON(DELETED_KEY, mergedDeleted); saveJSON(STATS_KEY, mergedStats); saveJSON(ACTIVITY_KEY, mergedActivity); saveJSON(PATTERNS_KEY, mergedPatterns);
         }
         if (!cancelled) setCloudStatus("online");
       } catch (e) {
@@ -291,12 +314,12 @@ export default function ParseIt() {
     if (!cloudEnabled) return;
     const timer = setTimeout(async () => {
       try {
-        await saveCloudData({ savedWords, stats, activity, patternCounts, dailyStats, dailyGoals });
+        await saveCloudData({ savedWords, deletedWords, stats, activity, patternCounts, dailyStats, dailyGoals });
         setCloudStatus("online");
       } catch (e) { setCloudStatus("error"); }
     }, 400);
     return () => clearTimeout(timer);
-  }, [cloudHydrated, savedWords, stats, activity, patternCounts, dailyStats, dailyGoals]);
+  }, [cloudHydrated, savedWords, deletedWords, stats, activity, patternCounts, dailyStats, dailyGoals]);
 
   function persistSaved(list) {
     setSavedWords(list);

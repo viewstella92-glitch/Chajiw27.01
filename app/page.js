@@ -402,7 +402,7 @@ export default function ParseIt() {
     if (!flashWord) return;
     const next = savedWords.map((s) =>
       wordKey(s) === wordKey(flashWord)
-        ? { ...s, reviewCount: 0, lastReviewed: todayStr() }
+        ? { ...s, reviewCount: 0, lastReviewed: todayStr(), updatedAt: nowIso() }
         : s
     );
     persistSaved(next);

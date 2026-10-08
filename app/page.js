@@ -71,6 +71,17 @@ const DAILY_GOAL_DEFAULTS = { sentences: 1, newWords: 5, reviews: 10 };
 function wordKey(w) {
   return `${w.hanzi}__${w.pinyin}`;
 }
+function speakChinese(text) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window) || !text) return false;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(String(text));
+  utterance.lang = "zh-CN";
+  utterance.rate = 0.82;
+  utterance.pitch = 1;
+  window.speechSynthesis.speak(utterance);
+  return true;
+}
+
 function todayStr() {
   const d = new Date();
   const y = d.getFullYear();
@@ -1505,11 +1516,26 @@ export default function ParseIt() {
               style={{ minHeight: "300px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", background: "#FBF6E8", border: `1px solid ${C.cardEdge}`, borderRadius: "8px", padding: "24px", cursor: "pointer", userSelect: "none" }}>
               <div style={{ fontSize: "11px", color: C.inkSoft, marginBottom: "12px" }}>แตะการ์ดเพื่อ{flashFlipped ? "ซ่อนคำตอบ" : "ดูคำตอบ"}</div>
               <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "64px", fontWeight: 700 }}>{flashWord.hanzi}</div>
+              <button
+                onClick={(e) => { e.stopPropagation(); speakChinese(flashWord.hanzi); }}
+                style={sealBtnOutline(false, { marginTop: "12px", padding: "7px 12px", fontSize: "12px" })}
+                aria-label="ฟังการออกเสียงคำศัพท์"
+              >
+                🔊 ฟังคำศัพท์
+              </button>
               {flashFlipped ? (
                 <div style={{ marginTop: "18px" }}>
                   <ToneMark tone={flashWord.tone} />
                   <div style={{ fontSize: "20px", color: C.indigo }}>{flashWord.pinyin}</div>
                   <div style={{ fontSize: "17px", color: C.inkSoft, marginTop: "5px" }}>{flashWord.thai}</div>
+                  {flashWord.example?.hanzi && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); speakChinese(flashWord.example.hanzi); }}
+                      style={sealBtnOutline(false, { marginTop: "10px", padding: "6px 10px", fontSize: "12px" })}
+                    >
+                      🔊 ฟังประโยคตัวอย่าง
+                    </button>
+                  )}
                 </div>
               ) : <div style={{ marginTop: "18px", color: C.faint, fontSize: "13px" }}>นึกคำแปลในใจก่อน แล้วแตะเพื่อเฉลย</div>}
             </div>

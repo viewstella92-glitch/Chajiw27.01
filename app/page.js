@@ -1027,7 +1027,8 @@ export default function ParseIt() {
             rank={rank}
             onReview={() => startFlashcards(true)}
             onLearn={() => { setActiveTab("parse"); setInput(""); }}
-            onAnalyze={() => { setActiveTab("parse"); setInput(EXAMPLE_SENTENCE); }}\n            onListening={() => { window.location.href = "/listening"; }}
+            onAnalyze={() => { setActiveTab("parse"); setInput(EXAMPLE_SENTENCE); }}
+            onListening={() => { window.location.href = "/listening"; }}
           />
         )}
 

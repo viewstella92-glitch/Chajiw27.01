@@ -203,6 +203,8 @@ export default function ParseIt() {
   const [dailyGoals, setDailyGoals] = useState(DAILY_GOAL_DEFAULTS);
   const [hskFilter, setHskFilter] = useState("all");
   const [wordSearch, setWordSearch] = useState("");
+  const [expandedKey, setExpandedKey] = useState(null);
+  const [hideMeaning, setHideMeaning] = useState(false);
   const [cloudStatus, setCloudStatus] = useState("loading");
   const [cloudHydrated, setCloudHydrated] = useState(false);
 
@@ -691,6 +693,27 @@ export default function ParseIt() {
     setPracticeResult(null);
     setPracticeError("");
   }
+
+  function toggleExpand(w) {
+    const k = wordKey(w);
+    setExpandedKey((cur) => (cur === k ? null : k));
+  }
+
+  function practiceThisWord(w) {
+    setPracticeWord(w);
+    setPracticeInput("");
+    setPracticeResult(null);
+    setPracticeError("");
+    setShowSaved(false);
+    setActiveTab("practice");
+  }
+
+  function nextDueText(w) {
+    if (!w.lastReviewed) return "ครบกำหนดแล้ว";
+    const n = Math.min(w.reviewCount || 0, REVIEW_INTERVALS.length - 1);
+    const left = REVIEW_INTERVALS[n] - daysBetween(w.lastReviewed, todayStr());
+    return left <= 0 ? "ครบกำหนดแล้ว" : `อีก ${left} วัน`;
+  }
   async function submitPractice() {
     if (!practiceWord || !practiceInput.trim()) return;
     setPracticeLoading(true);
@@ -835,22 +858,86 @@ export default function ParseIt() {
                       {[1,2,3,4,5,6].map((n) => <option key={n} value={String(n)}>HSK {n}</option>)}
                       <option value="unknown">ยังไม่ระบุ HSK</option>
                     </select>
+                    <button onClick={() => setHideMeaning((h) => !h)} style={sealBtnOutline(hideMeaning, { padding: "8px 12px", fontSize: "12.5px" })}>
+                      {hideMeaning ? "แสดงคำตอบ" : "ซ่อนคำตอบ"}
+                    </button>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                  {filteredSavedWords.map((w, i) => (
-                    <div key={wordKey(w) + i} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "9px 4px", borderBottom: i < savedWords.length - 1 ? `1px solid ${C.cardEdge}` : "none", cursor: "pointer" }} onClick={() => openPreview(w)}>
-                      <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "19px", minWidth: "44px" }}>{w.hanzi}</div>
-                      <ToneMark tone={w.tone} />
-                      <div style={{ fontSize: "14px", color: TONE_COLORS[w.tone] || TONE_COLORS[5], minWidth: "70px" }}>{w.pinyin}</div>
-                      <div style={{ fontSize: "13.5px", color: C.inkSoft, flex: 1 }}>{w.thai}</div>
-                      {w.hsk && <span style={{ fontSize: "10px", color: C.indigo, border: "1px solid " + C.indigo, padding: "2px 5px", borderRadius: 3 }}>HSK {w.hsk}</span>}
-                      {isDue(w) && <span style={{ fontSize: "10px", color: C.seal, fontWeight: 700 }}>●ครบทบทวน</span>}
-                      <button onClick={(e) => { e.stopPropagation(); removeSaved(w); }} style={{ background: "none", border: "none", color: C.faint, cursor: "pointer", padding: "4px", display: "flex" }} aria-label={`ลบ ${w.hanzi}`}>
-                        <X size={15} />
-                      </button>
-                    </div>
-                  ))}
-                  </div>
+                  {filteredSavedWords.map((w, i) => {
+                    const k = wordKey(w);
+                    const open = expandedKey === k;
+                    const covered = hideMeaning && !open;
+                    const bd = breakdowns[k];
+                    const chip = isDue(w) ? "ครบกำหนดแล้ว" : nextDueText(w);
+                    return (
+                      <div key={k + i} style={{ borderBottom: `1px solid ${C.cardEdge}` }}>
+                        <div
+                          className="cj-word"
+                          onClick={() => toggleExpand(w)}
+                          style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 4px", cursor: "pointer", flexWrap: "wrap" }}
+                        >
+                          <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "19px", minWidth: "44px" }}>{w.hanzi}</div>
+                          <ToneMark tone={w.tone} />
+                          <div style={{ fontSize: "14px", color: TONE_COLORS[w.tone] || TONE_COLORS[5], minWidth: "70px" }}>{w.pinyin}</div>
+                          <div style={{ fontSize: "13.5px", color: C.inkSoft, flex: 1, minWidth: "120px" }}>
+                            {covered ? "แตะเพื่อดูคำตอบ" : w.thai}
+                          </div>
+                          {w.hsk && <span style={{ fontSize: "10px", color: C.indigo, border: "1px solid " + C.indigo, padding: "2px 5px", borderRadius: 3 }}>HSK {w.hsk}</span>}
+                          {isDue(w) && <span style={{ fontSize: "10px", color: C.seal, fontWeight: 700 }}>●ครบกำหนด</span>}
+                          <span style={{ color: C.faint, fontSize: "11px" }}>{open ? "▲" : "▼"}</span>
+                        </div>
+
+                        {open && (
+                          <div onClick={(e) => e.stopPropagation()} style={{ margin: "0 0 12px", padding: "14px", background: "#FBF6E8", border: `1px solid ${C.cardEdge}`, borderRadius: "4px" }}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: "10px", flexWrap: "wrap" }}>
+                              <span style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "30px", fontWeight: 700 }}>{w.hanzi}</span>
+                              <span style={{ color: C.indigo, fontSize: "14px" }}>{w.pinyin}</span>
+                              <span style={{ color: C.inkSoft, fontSize: "14px" }}>{w.thai}</span>
+                            </div>
+                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "9px" }}>
+                              {w.pos && <span style={{ fontSize: "11px", border: `1px solid ${C.cardEdge}`, padding: "3px 7px", borderRadius: 3 }}>词性 {w.pos}</span>}
+                              {w.hsk && <span style={{ fontSize: "11px", border: `1px solid ${C.indigo}`, color: C.indigo, padding: "3px 7px", borderRadius: 3 }}>HSK {w.hsk}</span>}
+                              {w.role && <span style={{ fontSize: "11px", border: `1px solid ${C.cardEdge}`, padding: "3px 7px", borderRadius: 3 }}>{w.role}</span>}
+                            </div>
+                            {w.example && (
+                              <div style={{ marginTop: "11px", padding: "10px", borderLeft: `3px solid ${C.gold}` }}>
+                                <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "16px" }}>{w.example}</div>
+                                {w.examplePinyin && <div style={{ color: C.indigo, fontSize: "12px", marginTop: "3px" }}>{w.examplePinyin}</div>}
+                                {w.exampleMeaning && <div style={{ color: C.inkSoft, fontSize: "12px", marginTop: "3px" }}>{w.exampleMeaning}</div>}
+                              </div>
+                            )}
+                            <div style={{ marginTop: "10px", fontSize: "11.5px", color: C.inkSoft }}>
+                              บันทึกเมื่อ {w.savedAt || "-"} · ทบทวนแล้ว {w.reviewCount || 0} ครั้ง · {chip}
+                            </div>
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "12px" }}>
+                              <button onClick={() => markReviewed(w)} style={sealBtnFilled()}><GraduationCap size={14} />ทบทวนแล้ว</button>
+                              <button onClick={() => practiceThisWord(w)} style={sealBtnOutline(false)}><PencilLine size={14} />ฝึกคำนี้</button>
+                              <button onClick={() => { if (window.confirm(`ลบ "${w.hanzi}" ออกจากคำที่บันทึกไว้หรือไม่?`)) removeSaved(w); }} style={sealBtnOutline(false)}><X size={14} />ลบคำนี้</button>
+                            </div>
+                            <div style={{ marginTop: "14px", borderTop: `1px solid ${C.cardEdge}`, paddingTop: "12px" }}>
+                              {!bd && (
+                                <button onClick={() => loadBreakdown(w)} style={sealBtnOutline(false)}>
+                                  <Puzzle size={14} />แยกส่วนประกอบตัวอักษร
+                                </button>
+                              )}
+                              {bd?.status === "loading" && (
+                                <div style={{ display: "flex", alignItems: "center", gap: "7px", fontSize: "12px", color: C.inkSoft }}>
+                                  <Loader2 size={14} style={{ animation: "spin 0.9s linear infinite" }} />กำลังวิเคราะห์ตัวอักษร…
+                                </div>
+                              )}
+                              {bd?.status === "error" && (
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: "12px", color: C.seal }}>วิเคราะห์ไม่สำเร็จ</span>
+                                  <button onClick={() => { setBreakdowns((prev) => { const next = { ...prev }; delete next[k]; return next; }); loadBreakdown(w); }} style={sealBtnOutline(false, { padding: "6px 10px", fontSize: "11.5px" })}>ลองใหม่</button>
+                                </div>
+                              )}
+                              {bd?.status === "done" && <BreakdownView chars={bd.chars} />}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}                  </div>
                 </div>
               </>
             )}
@@ -1406,6 +1493,54 @@ export default function ParseIt() {
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+
+function BreakdownView({ chars }) {
+  if (!Array.isArray(chars) || chars.length === 0) {
+    return <div style={{ fontSize: "12px", color: C.faint }}>ยังไม่มีข้อมูลการแยกตัวอักษร</div>;
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
+      {chars.map((ch, i) => (
+        <div key={`${ch.hanzi || "char"}-${i}`} style={{ background: "#FBF6E8", border: `1px solid ${C.cardEdge}`, borderRadius: "4px", padding: "12px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "9px", flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "28px", fontWeight: 700 }}>{ch.hanzi}</span>
+            <span style={{ color: C.indigo, fontSize: "13px" }}>{ch.pinyin || "-"}</span>
+            <span style={{ color: C.inkSoft, fontSize: "13px" }}>{ch.meaning || "-"}</span>
+          </div>
+          {Array.isArray(ch.components) && ch.components.length > 0 && (
+            <div style={{ marginTop: "9px" }}>
+              <div style={{ fontSize: "11px", color: C.inkSoft, marginBottom: "5px" }}>ส่วนประกอบ</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {ch.components.map((c, j) => (
+                  <div key={`${c.hanzi || "component"}-${j}`} style={{ border: `1px solid ${C.cardEdge}`, borderRadius: "3px", padding: "5px 7px", fontSize: "12px" }}>
+                    <span style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "17px" }}>{c.hanzi}</span>
+                    <span style={{ color: C.indigo, marginLeft: "5px" }}>{c.pinyin || "-"}</span>
+                    <span style={{ color: C.inkSoft, marginLeft: "5px" }}>{c.meaning || ""}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {Array.isArray(ch.related) && ch.related.length > 0 && (
+            <div style={{ marginTop: "9px" }}>
+              <div style={{ fontSize: "11px", color: C.inkSoft, marginBottom: "5px" }}>คำที่พบร่วมกัน</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {ch.related.map((r, j) => (
+                  <div key={`${r.hanzi || "related"}-${j}`} style={{ border: `1px solid ${C.cardEdge}`, borderRadius: "3px", padding: "5px 8px" }}>
+                    <span style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "15px" }}>{r.hanzi}</span>
+                    <span style={{ color: C.indigo, fontSize: "11px", marginLeft: "5px" }}>{r.pinyin || ""}</span>
+                    <span style={{ display: "block", color: C.inkSoft, fontSize: "11px", marginTop: "2px" }}>{r.meaning || ""}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

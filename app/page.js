@@ -325,6 +325,10 @@ export default function ParseIt() {
     setSavedWords(list);
     saveJSON(STORAGE_KEY, list);
   }
+  function persistDeleted(list) {
+    setDeletedWords(list);
+    saveJSON(DELETED_KEY, list);
+  }
   function bumpDaily(field) {
     const t = todayStr();
     setDailyStats((prev) => {
@@ -332,28 +336,29 @@ export default function ParseIt() {
       return { ...base, [field]: (base[field] || 0) + 1 };
     });
   }
-
   function isSaved(w) {
     return savedWords.some((s) => wordKey(s) === wordKey(w));
   }
-
   function toggleSave(w) {
+    const key = wordKey(w);
     if (isSaved(w)) {
-      persistSaved(savedWords.filter((s) => wordKey(s) !== wordKey(w)));
-    } else {
-      persistSaved([...savedWords, { ...w, reviewCount: 0, lastReviewed: null, savedAt: todayStr() }]);
-      bumpDaily("newWords");
+      removeSaved(w);
+      return;
     }
+    const updatedAt = nowIso();
+    persistSaved([...savedWords, { ...w, reviewCount: 0, lastReviewed: null, savedAt: todayStr(), updatedAt }]);
+    persistDeleted(deletedWords.filter((d) => d.key !== key));
+    bumpDaily("newWords");
   }
-
   function removeSaved(w) {
-    persistSaved(savedWords.filter((s) => wordKey(s) !== wordKey(w)));
+    const key = wordKey(w);
+    persistSaved(savedWords.filter((s) => wordKey(s) !== key));
+    persistDeleted([...deletedWords.filter((d) => d.key !== key), { key, deletedAt: nowIso() }]);
   }
-
   function markReviewed(w) {
     const next = savedWords.map((s) =>
       wordKey(s) === wordKey(w)
-        ? { ...s, reviewCount: (s.reviewCount || 0) + 1, lastReviewed: todayStr() }
+        ? { ...s, reviewCount: (s.reviewCount || 0) + 1, lastReviewed: todayStr(), updatedAt: nowIso() }
         : s
     );
     persistSaved(next);

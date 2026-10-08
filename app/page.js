@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { C, RANKS, rankFor, PATTERN_TAGS } from "../lib/theme";
 import { cloudEnabled, loadCloudData, saveCloudData } from "../lib/cloud";
+import DailyTraining from "../components/DailyTraining";
 
 const TONE_COLORS = { 1: C.seal, 2: C.gold, 3: C.jade, 4: C.indigo, 5: C.muted };
 const TONE_LABELS = {
@@ -1007,12 +1008,28 @@ export default function ParseIt() {
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: "4px", marginTop: "26px", borderBottom: `1px solid ${C.cardEdge}`, flexWrap: "wrap" }}>
+          <button onClick={() => setActiveTab("today")} style={tabStyle(activeTab === "today")}><Flame size={14} />วันนี้</button>
           <button onClick={() => setActiveTab("parse")} style={tabStyle(activeTab === "parse")}><Scroll size={14} />แยกคำ</button>
           <button onClick={() => setActiveTab("dashboard")} style={tabStyle(activeTab === "dashboard")}><LayoutDashboard size={14} />แดชบอร์ด</button>
           <button onClick={() => setActiveTab("jianghu")} style={tabStyle(activeTab === "jianghu")}><Trophy size={14} />ยุทธภพ</button>
           <button onClick={() => setActiveTab("quiz")} style={tabStyle(activeTab === "quiz")}><HelpCircle size={14} />ควิซ</button>
           <button onClick={() => setActiveTab("practice")} style={tabStyle(activeTab === "practice")}><PencilLine size={14} />ฝึกแต่งประโยค</button>
         </div>
+
+        {activeTab === "today" && (
+          <DailyTraining
+            todayDaily={todayDaily}
+            dailyGoals={dailyGoals}
+            dailyComplete={dailyComplete}
+            dueWords={dueWords}
+            savedWords={savedWords}
+            streak={streak}
+            rank={rank}
+            onReview={() => startFlashcards(true)}
+            onLearn={() => { setActiveTab("parse"); setInput(""); }}
+            onAnalyze={() => { setActiveTab("parse"); setInput(EXAMPLE_SENTENCE); }}
+          />
+        )}
 
         {activeTab === "parse" && (
           <div style={{ marginTop: "20px" }}>

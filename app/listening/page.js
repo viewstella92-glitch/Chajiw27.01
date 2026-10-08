@@ -7,6 +7,7 @@ import { C } from "../../lib/theme";
 
 const STORAGE_KEY = "parseit:saved-words";
 const DAILY_KEY = "parseit:daily-stats";
+const LISTENING_SRS_KEY = "parseit:listening-srs";
 
 function wordKey(w) { return `${w.hanzi}__${w.pinyin || ""}`; }
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
@@ -19,10 +20,37 @@ function speak(text, rate = 0.78) {
 }
 function loadLocal() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; } }
 function saveLocal(words) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(words)); } catch {} }
+function loadSrs() { try { return JSON.parse(localStorage.getItem(LISTENING_SRS_KEY) || "{}"); } catch { return {}; } }
+function saveSrs(v) { try { localStorage.setItem(LISTENING_SRS_KEY, JSON.stringify(v)); } catch {} }
+function srsWeight(w, srs) {
+  const x = srs[wordKey(w)] || {};
+  const wrong = x.wrong || 0, correct = x.correct || 0;
+  const due = !x.nextListeningReview || new Date(x.nextListeningReview).getTime() <= Date.now();
+  const accuracy = correct + wrong ? correct / (correct + wrong) : 0.5;
+  let weight = due ? 4 : 1;
+  if (wrong > correct) weight += 4;
+  else if (wrong > 0) weight += 2;
+  if (accuracy < 0.6) weight += 3;
+  else if (accuracy < 0.8) weight += 1;
+  return weight;
+}
+function chooseAdaptive(pool, srs, count) {
+  const bag = [];
+  pool.forEach(w => { for (let i = 0; i < Math.max(1, Math.round(srsWeight(w, srs))); i++) bag.push(w); });
+  const out = [];
+  while (out.length < count && bag.length) {
+    const pick = bag[Math.floor(Math.random() * bag.length)];
+    if (!out.some(w => wordKey(w) === wordKey(pick)) || out.length >= pool.length) out.push(pick);
+    const key = wordKey(pick);
+    for (let i = bag.length - 1; i >= 0; i--) if (wordKey(bag[i]) === key) bag.splice(i, 1);
+  }
+  return out.length ? out : shuffle(pool).slice(0, count);
+}
+function nextInterval(streak) { return [1,2,4,7,14,30][Math.min(streak, 5)]; }
 
 export default function ListeningPage() {
   const [words, setWords] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);\n  const [srs, setSrs] = useState({});
   const [mode, setMode] = useState("meaning");
   const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
@@ -64,7 +92,7 @@ export default function ListeningPage() {
 
   function makeRound(selectedMode) {
     const pool = usable;
-    const qs = shuffle(pool).slice(0, Math.min(10, pool.length));
+    const qs = chooseAdaptive(pool, srs, Math.min(10, pool.length));
     setQuestions(qs);
     setIndex(0); setScore(0); setSelected(null); setAnswered(false); setInput("");
     setResults([]); setRecorded(false); setRound(0); setMode(selectedMode);
@@ -92,6 +120,15 @@ export default function ListeningPage() {
   }
 
   async function updateWordSkill(q, correct) {
+    const key = wordKey(q);
+    const prev = srs[key] || {};
+    const nextCorrect = (prev.correct || 0) + (correct ? 1 : 0);
+    const nextWrong = (prev.wrong || 0) + (correct ? 0 : 1);
+    const streak = correct ? (prev.correctStreak || 0) + 1 : 0;
+    const nextReview = new Date(Date.now() + nextInterval(streak) * 86400000).toISOString();
+    const nextSrs = { ...srs, [key]: { correct: nextCorrect, wrong: nextWrong, correctStreak: streak, lastResult: correct ? "correct" : "wrong", lastReviewed: new Date().toISOString(), nextListeningReview: nextReview } };
+    setSrs(nextSrs);
+    saveSrs(nextSrs);
     const local = loadLocal();
     const updated = local.map(w => wordKey(w) === wordKey(q)
       ? { ...w, listeningCorrect: (w.listeningCorrect || 0) + (correct ? 1 : 0), listeningWrong: (w.listeningWrong || 0) + (correct ? 0 : 1), lastListening: new Date().toISOString() }

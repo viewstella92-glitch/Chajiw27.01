@@ -38,6 +38,9 @@ import {
 import { C, rankFor, PATTERN_TAGS } from "../lib/theme";
 import { cloudEnabled, loadCloudData, saveCloudData } from "../lib/cloud";
 import DailyTraining from "../components/DailyTraining";
+import WeeklyBoss from "../components/WeeklyBoss";
+import GrammarScroll, { PATTERN_LOG_KEY } from "../components/GrammarScroll";
+import MnemonicStory from "../components/MnemonicStory";
 
 const TONE_COLORS = { 1: C.seal, 2: C.gold, 3: C.jade, 4: C.indigo, 5: C.muted };
 const TONE_LABELS = {
@@ -666,6 +669,21 @@ export default function ParseIt() {
       const nextCounts = { ...patternCounts, [tag]: (patternCounts[tag] || 0) + 1 };
       setPatternCounts(nextCounts);
       saveJSON(PATTERNS_KEY, nextCounts);
+
+      const patternLog = loadJSON(PATTERN_LOG_KEY, {});
+      const logTag = PATTERN_TAGS.includes(parsed.patternTag) ? parsed.patternTag : "อื่นๆ";
+      const entries = Array.isArray(patternLog[logTag]) ? patternLog[logTag] : [];
+      if (!entries.some((e) => e.hanzi === text)) {
+        entries.push({
+          hanzi: text,
+          pinyin: (parsed.words || []).map((w) => w.pinyin).join(" "),
+          thai: parsed.translation || "",
+          pattern: parsed.pattern || "",
+          at: todayStr(),
+        });
+      }
+      patternLog[logTag] = entries.slice(-30);
+      saveJSON(PATTERN_LOG_KEY, patternLog);
     } catch (e) {
       setError("แยกคำไม่สำเร็จ: " + (e?.message || "เกิดข้อผิดพลาดไม่ทราบสาเหตุ"));
     } finally {
@@ -1019,6 +1037,8 @@ export default function ParseIt() {
           <button onClick={() => setActiveTab("jianghu")} style={tabStyle(activeTab === "jianghu")}><Trophy size={14} />ยุทธภพ</button>
           <button onClick={() => setActiveTab("quiz")} style={tabStyle(activeTab === "quiz")}><HelpCircle size={14} />ควิซ</button>
           <button onClick={() => setActiveTab("practice")} style={tabStyle(activeTab === "practice")}><PencilLine size={14} />ฝึกแต่งประโยค</button>
+          <button onClick={() => setActiveTab("boss")} style={tabStyle(activeTab === "boss")}><Swords size={14} />บอสสัปดาห์</button>
+          <button onClick={() => setActiveTab("scroll")} style={tabStyle(activeTab === "scroll")}><Scroll size={14} />คัมภีร์</button>
         </div>
 
         {activeTab === "today" && (
@@ -1256,6 +1276,7 @@ export default function ParseIt() {
                         )}
                       </div>
                     ))}
+                    <MnemonicStory key={previewWord.hanzi} word={previewWord} chars={activeBreakdown.chars} />
                   </div>
                 )}
               </div>
@@ -1396,6 +1417,9 @@ export default function ParseIt() {
             </div>
           </div>
         )}
+
+        {activeTab === "boss" && <WeeklyBoss savedWords={savedWords} />}
+        {activeTab === "scroll" && <GrammarScroll />}
 
         {activeTab === "quiz" && (
           <div style={{ marginTop: "20px" }}>

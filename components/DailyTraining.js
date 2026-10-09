@@ -5,12 +5,13 @@ import { Scroll, BookMarked, GraduationCap, ArrowRight, Flame, Check, Swords, He
 
 export default function DailyTraining({
   todayDaily, dailyGoals, dailyComplete, dueWords, savedWords, streak, rank,
-  onReview, onLearn, onAnalyze,
+  onReview, onLearn, onAnalyze, onListening,
 }) {
   const items = [
     { key: "reviews", label: "ทบทวนคำที่ถึงกำหนด", value: todayDaily.reviews, target: dailyGoals.reviews, icon: GraduationCap, action: onReview },
     { key: "newWords", label: "เพิ่มคำศัพท์ใหม่", value: todayDaily.newWords, target: dailyGoals.newWords, icon: BookMarked, action: onLearn },
-    { key: "sentences", label: "วิเคราะห์ประโยค", value: todayDaily.sentences, target: dailyGoals.sentences, icon: Scroll, action: onAnalyze },\n    { key: "listening", label: "ฝึกฟังภาษาจีน", value: todayDaily.listening || 0, target: dailyGoals.listening || 5, icon: Headphones, action: onListening },
+    { key: "sentences", label: "วิเคราะห์ประโยค", value: todayDaily.sentences, target: dailyGoals.sentences, icon: Scroll, action: onAnalyze },
+    { key: "listening", label: "ฝึกฟังภาษาจีน", value: todayDaily.listening || 0, target: dailyGoals.listening || 5, icon: Headphones, action: onListening },
   ];
   const next = items.find((x) => x.value < x.target);
   const remaining = items.reduce((n, x) => n + Math.max(0, x.target - x.value), 0);

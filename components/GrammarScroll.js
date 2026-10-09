@@ -1,72 +1,120 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ScrollText, LockKeyhole, Unlock, BookOpenCheck } from "lucide-react";
+import { Scroll, Lock } from "lucide-react";
+import { C, PATTERN_TAGS } from "../lib/theme";
 
+// Written by the parse flow in app/page.js (see INTEGRATION.md).
+// Shape: { [patternTag]: [{ hanzi, pinyin, thai, pattern, at }] }
 export const PATTERN_LOG_KEY = "parseit:pattern-log";
 export const UNLOCK_AT = 3;
 
 export default function GrammarScroll() {
-  const [patternLog, setPatternLog] = useState({});
-  const [ready, setReady] = useState(false);
+  const [log, setLog] = useState(null);
+  const [open, setOpen] = useState(null);
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(PATTERN_LOG_KEY);
-      setPatternLog(raw ? JSON.parse(raw) : {});
+      setLog(JSON.parse(localStorage.getItem(PATTERN_LOG_KEY)) || {});
     } catch {
-      setPatternLog({});
+      setLog({});
     }
-    setReady(true);
   }, []);
 
-  const entries = Object.entries(patternLog || {}).flatMap(([tag, list]) =>
-    (Array.isArray(list) ? list : []).map((entry) => ({ ...entry, tag }))
-  );
-  const unique = Array.from(new Map(entries.filter((e) => e.hanzi).map((e) => [e.hanzi, e])).values())
-    .sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
-  const unlocked = unique.length >= UNLOCK_AT;
+  if (!log) return null;
+
+  const unlockedCount = PATTERN_TAGS.filter((t) => (log[t] || []).length >= UNLOCK_AT).length;
 
   return (
-    <section style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ padding: 22, border: "1px solid #D8C99F", borderRadius: 6, background: "linear-gradient(135deg,#FBF6E8,#F2E3BD)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-          <ScrollText size={27} color="#9B2924" />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Noto Serif Thai', serif", fontSize: 22, fontWeight: 800 }}>คัมภีร์ไวยากรณ์</div>
-            <div style={{ color: "#655D50", fontSize: 12 }}>รวบรวมรูปแบบประโยคที่คุณเคยแยกวิเคราะห์</div>
-          </div>
-          {unlocked ? <Unlock size={21} color="#3D7655" /> : <LockKeyhole size={21} color="#9B2924" />}
+    <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div
+        style={{
+          background: "linear-gradient(135deg, #FBF6E8, #F3E7C4)",
+          border: `1px solid ${C.cardEdge}`,
+          borderRadius: "6px",
+          padding: "16px 18px",
+        }}
+      >
+        <div style={{ fontFamily: "'Noto Serif Thai', serif", fontSize: "18px", fontWeight: 700 }}>
+          คัมภีร์ไวยากรณ์ <span style={{ fontSize: "12px", color: C.inkSoft, fontWeight: 500 }}>語法秘笈</span>
         </div>
-        <div style={{ marginTop: 16, fontSize: 13, color: "#655D50" }}>
-          {ready ? (unlocked ? "ปลดล็อกแล้ว — บันทึกครบ " + unique.length + " ประโยค" : "ปลดล็อกเมื่อบันทึกครบ " + UNLOCK_AT + " ประโยคที่แตกต่างกัน · ตอนนี้ " + unique.length + "/" + UNLOCK_AT) : "กำลังเปิดคัมภีร์…"}
-        </div>
-        <div style={{ height: 6, marginTop: 9, background: "#D8C99F", borderRadius: 6, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: Math.min(100, unique.length / UNLOCK_AT * 100) + "%", background: unlocked ? "#3D7655" : "#9B2924" }} />
+        <div style={{ fontSize: "12px", color: C.inkSoft, marginTop: "4px" }}>
+          เจอประโยคแบบเดียวกัน {UNLOCK_AT} ประโยค จะปลดล็อกคัมภีร์ของรูปแบบนั้น ปลดแล้ว {unlockedCount} / {PATTERN_TAGS.length}
         </div>
       </div>
-      {!unlocked ? (
-        <div style={{ padding: 28, textAlign: "center", border: "1px dashed #D8C99F", borderRadius: 5, color: "#655D50", background: "#FFFCF4" }}>
-          <LockKeyhole size={25} style={{ margin: "0 auto 10px" }} />
-          <div style={{ fontWeight: 700, fontSize: 14 }}>คัมภีร์ยังปิดผนึก</div>
-          <div style={{ fontSize: 12.5, lineHeight: 1.7, marginTop: 6 }}>ไปที่แท็บ “แยกคำ” แล้ววิเคราะห์ประโยคภาษาจีนที่แตกต่างกันอีก {Math.max(0, UNLOCK_AT - unique.length)} ประโยค ข้อมูลจะบันทึกไว้ในเบราว์เซอร์เครื่องนี้</div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {unique.map((entry, index) => (
-            <article key={entry.hanzi} style={{ background: "#FFFCF4", border: "1px solid #D8C99F", borderRadius: 5, padding: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, color: "#9B2924", fontSize: 11, fontWeight: 800 }}>
-                <BookOpenCheck size={14} /> ม้วนที่ {unique.length - index} · {entry.tag || "อื่นๆ"} · {entry.at || "ไม่ทราบวันที่"}
+
+      {PATTERN_TAGS.map((tag) => {
+        const entries = log[tag] || [];
+        const unlocked = entries.length >= UNLOCK_AT;
+        const isOpen = open === tag;
+        const latest = entries[entries.length - 1];
+
+        return (
+          <div
+            key={tag}
+            style={{
+              background: unlocked ? C.card : "#F4EFE3",
+              border: `1px solid ${unlocked ? C.gold : C.cardEdge}`,
+              borderRadius: "5px",
+              opacity: unlocked ? 1 : 0.75,
+            }}
+          >
+            <button
+              onClick={() => setOpen(isOpen ? null : tag)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "12px 14px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: C.ink,
+                textAlign: "left",
+                fontFamily: "'Noto Sans Thai', sans-serif",
+              }}
+            >
+              {unlocked ? <Scroll size={15} color={C.gold} /> : <Lock size={15} color={C.faint} />}
+              <span style={{ flex: 1, fontSize: "13.5px", fontWeight: 600 }}>{tag}</span>
+              <span style={{ fontSize: "11.5px", color: C.inkSoft }}>
+                {Math.min(entries.length, UNLOCK_AT)} / {UNLOCK_AT}
+              </span>
+            </button>
+
+            {isOpen && (
+              <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${C.cardEdge}` }}>
+                {unlocked ? (
+                  <>
+                    <div style={{ fontSize: "13.5px", lineHeight: 1.6, margin: "12px 0", color: C.ink }}>
+                      {latest.pattern || "ยังไม่มีคำอธิบายรูปแบบนี้"}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {entries
+                        .slice()
+                        .reverse()
+                        .map((e, i) => (
+                          <div
+                            key={`${e.hanzi}-${i}`}
+                            style={{ background: "#FBF6E8", border: `1px solid ${C.cardEdge}`, borderRadius: "4px", padding: "9px 11px" }}
+                          >
+                            <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: "16px" }}>{e.hanzi}</div>
+                            {e.pinyin && <div style={{ fontSize: "12px", color: C.indigo, marginTop: "2px" }}>{e.pinyin}</div>}
+                            {e.thai && <div style={{ fontSize: "12px", color: C.inkSoft, marginTop: "2px" }}>{e.thai}</div>}
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: "12.5px", color: C.faint, margin: "12px 0" }}>
+                    ยังไม่ปลดล็อก เจอประโยคแบบนี้อีก {UNLOCK_AT - entries.length} ประโยค
+                  </div>
+                )}
               </div>
-              <div style={{ fontFamily: "'Noto Serif SC', serif", fontSize: 21, fontWeight: 700 }}>{entry.hanzi}</div>
-              {entry.pinyin && <div style={{ color: "#5A6398", fontSize: 12.5, marginTop: 4 }}>{entry.pinyin}</div>}
-              {entry.thai && <div style={{ color: "#655D50", fontSize: 13, marginTop: 6 }}>{entry.thai}</div>}
-              {entry.pattern && <div style={{ marginTop: 10, padding: "9px 11px", background: "#F7F0DE", borderLeft: "3px solid #9B2924", fontSize: 12.5, lineHeight: 1.6 }}>{entry.pattern}</div>}
-            </article>
-          ))}
-        </div>
-      )}
-      <div style={{ fontSize: 11.5, color: "#817969" }}>หมายเหตุ: บันทึกเฉพาะในเครื่องและเบราว์เซอร์นี้ ยังไม่ซิงก์กับ Supabase</div>
-    </section>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }

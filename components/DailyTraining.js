@@ -54,7 +54,7 @@ export default function DailyTraining({
         <div style={{ marginTop: "18px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           {next ? (
             <button onClick={next.action} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#9B2924", color: "#F6EFD9", border: "none", borderRadius: "4px", padding: "11px 16px", fontSize: "13.5px", fontWeight: 700, cursor: "pointer" }}>
-              <Icon size={16} />
+              <next.icon size={16} />
               {next.key === "reviews" ? "เริ่มทบทวน" : next.key === "newWords" ? "ไปเรียนคำใหม่" : next.key === "sentences" ? "วิเคราะห์ประโยค" : "เริ่มฝึกฟัง"}
               <ArrowRight size={15} />
             </button>

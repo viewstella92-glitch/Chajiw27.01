@@ -6,12 +6,20 @@ export const runtime = "nodejs";
 export async function POST(request) {
   try {
     const body = await request.json();
-    const word = body?.word;
+    // Accept both the original { word, chars } contract and the compact
+    // { hanzi, pinyin, thai, components } contract used by MnemonicStory.
+    const word = body?.word || {
+      hanzi: body?.hanzi,
+      pinyin: body?.pinyin,
+      thai: body?.thai,
+      example: body?.example,
+    };
     if (!word?.hanzi || typeof word.hanzi !== "string") {
       return NextResponse.json({ error: "กรุณาระบุคำศัพท์ภาษาจีน" }, { status: 400 });
     }
 
-    const chars = Array.isArray(body.chars) ? body.chars.slice(0, 12) : [];
+    const inputChars = Array.isArray(body.chars) ? body.chars : body.components;
+    const chars = Array.isArray(inputChars) ? inputChars.slice(0, 12) : [];
     const prompt = `คุณเป็นครูสอนภาษาจีนให้ผู้เรียนชาวไทย จงสร้างเครื่องมือช่วยจำสำหรับคำศัพท์นี้ โดยต้องไม่แต่งข้อมูลพินอินหรือความหมายที่ขัดกับข้อมูลที่ให้มา
 คำศัพท์: ${word.hanzi}
 พินอิน: ${word.pinyin || "ไม่ระบุ"}
@@ -29,6 +37,7 @@ export async function POST(request) {
 
     const generated = await callTextLLM(prompt);
     const result = {
+      keyword: `${word.hanzi}${word.pinyin ? " · " + word.pinyin : ""}${word.thai ? " · " + word.thai : ""}`,
       title: typeof generated.title === "string" ? generated.title : "เรื่องช่วยจำ",
       story: typeof generated.story === "string" ? generated.story : "",
       mnemonic: typeof generated.mnemonic === "string" ? generated.mnemonic : "",

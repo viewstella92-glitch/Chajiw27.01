@@ -35,7 +35,7 @@ import {
   Cloud,
   CloudOff,
 } from "lucide-react";
-import { C, RANKS, rankFor, PATTERN_TAGS } from "../lib/theme";
+import { C, rankFor, PATTERN_TAGS } from "../lib/theme";
 import { cloudEnabled, loadCloudData, saveCloudData } from "../lib/cloud";
 import DailyTraining from "../components/DailyTraining";
 
@@ -89,6 +89,9 @@ function todayStr() {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return y + "-" + m + "-" + day;
+}
+function nowIso() {
+  return new Date().toISOString();
 }
 function formatDateLocal(d) {
   const y = d.getFullYear();
@@ -309,11 +312,12 @@ export default function ParseIt() {
           if (cloud.dailyGoals) setDailyGoals(cloud.dailyGoals);
           saveJSON(STORAGE_KEY, mergedWords); saveJSON(DELETED_KEY, mergedDeleted); saveJSON(STATS_KEY, mergedStats); saveJSON(ACTIVITY_KEY, mergedActivity); saveJSON(PATTERNS_KEY, mergedPatterns);
         }
-        if (!cancelled) setCloudStatus("online");
+        if (!cancelled) {
+          setCloudStatus("online");
+          setCloudHydrated(true);
+        }
       } catch (e) {
         if (!cancelled) setCloudStatus("error");
-      } finally {
-        if (!cancelled) setCloudHydrated(true);
       }
     })();
     return () => { cancelled = true; };
@@ -472,7 +476,7 @@ export default function ParseIt() {
     ctx.strokeStyle = C.ink;
     ctxRef.current = ctx;
     redrawAll(strokesRef.current);
-  }, [inputMode]);
+  }, [inputMode, activeTab]);
 
   function getPos(e) {
     const canvas = canvasRef.current;
@@ -819,6 +823,7 @@ export default function ParseIt() {
   let streak = 0;
   {
     let d = new Date();
+    if (!activity.includes(formatDateLocal(d))) d.setDate(d.getDate() - 1);
     for (;;) {
       const iso = formatDateLocal(d);
       if (activity.includes(iso)) {

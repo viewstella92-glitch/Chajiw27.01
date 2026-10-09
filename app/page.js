@@ -629,6 +629,20 @@ export default function ParseIt() {
         setPatternTag(parsed.patternTag || "");
         setHsk(parsed.hsk || "");
         setWords(Array.isArray(parsed.words) ? parsed.words : []);
+        const cachedPatternLog = loadJSON(PATTERN_LOG_KEY, {});
+        const cachedLogTag = PATTERN_TAGS.includes(parsed.patternTag) ? parsed.patternTag : "อื่นๆ";
+        const cachedEntries = Array.isArray(cachedPatternLog[cachedLogTag]) ? cachedPatternLog[cachedLogTag] : [];
+        if (!cachedEntries.some((entry) => entry.hanzi === text)) {
+          cachedEntries.push({
+            hanzi: text,
+            pinyin: (parsed.words || []).map((w) => w.pinyin).join(" "),
+            thai: parsed.translation || "",
+            pattern: parsed.pattern || "",
+            at: todayStr(),
+          });
+          cachedPatternLog[cachedLogTag] = cachedEntries.slice(-30);
+          saveJSON(PATTERN_LOG_KEY, cachedPatternLog);
+        }
         setTimeout(() => setRevealed(true), 30);
         setLoading(false);
         return;

@@ -1,54 +1,104 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, Loader2, BookOpen, RefreshCw } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
+import { C } from "../lib/theme";
 
-export default function MnemonicStory({ word, chars = [] }) {
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+// Use with key={word.hanzi} so state resets when the word changes.
+export default function MnemonicStory({ word, chars }) {
+  const cacheKey = "parseit-cache:mnemonic:" + word.hanzi;
 
-  async function createStory() {
-    if (!word?.hanzi || loading) return;
-    setLoading(true);
-    setError("");
+  const [state, setState] = useState(() => {
     try {
-      const response = await fetch("/api/mnemonic", {
+      const cached = localStorage.getItem(cacheKey);
+      return cached ? { status: "done", data: JSON.parse(cached) } : { status: "idle" };
+    } catch {
+      return { status: "idle" };
+    }
+  });
+
+  async function generate() {
+    setState({ status: "loading" });
+    try {
+      const res = await fetch("/api/mnemonic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          word: { hanzi: word.hanzi, pinyin: word.pinyin || "", thai: word.thai || word.meaning || "", example: word.example || null },
-          chars: chars.map((c) => ({ hanzi: c.hanzi, pinyin: c.pinyin, meaning: c.meaning, components: c.components || [] })),
+          hanzi: word.hanzi,
+          pinyin: word.pinyin,
+          thai: word.thai,
+          components: (chars || []).map((c) => ({ hanzi: c.hanzi, meaning: c.meaning })),
         }),
       });
-      const data = await response.json();
-      if (!response.ok || data.error) throw new Error(data.error || "สร้างคำช่วยจำไม่สำเร็จ");
-      setResult(data);
-    } catch (e) {
-      setError(e?.message || "เกิดข้อผิดพลาด กรุณาลองใหม่");
-    } finally {
-      setLoading(false);
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "สร้างคำช่วยจำไม่สำเร็จ");
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+      } catch {}
+      setState({ status: "done", data });
+    } catch {
+      setState({ status: "error" });
     }
   }
 
   return (
-    <div style={{ marginTop: 4, padding: 15, border: "1px solid #D8C99F", borderRadius: 5, background: "linear-gradient(135deg,#FBF6E8,#F7EED7)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <BookOpen size={17} color="#9B2924" />
-        <div style={{ fontSize: 14, fontWeight: 800, flex: 1 }}>คำช่วยจำ · 记忆故事</div>
+    <div
+      style={{
+        marginTop: "16px",
+        background: "#FBF6E8",
+        border: `1px solid ${C.cardEdge}`,
+        borderLeft: `3px solid ${C.gold}`,
+        borderRadius: "4px",
+        padding: "12px 14px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+        <Sparkles size={14} color={C.gold} />
+        <span style={{ fontSize: "13px", fontWeight: 700 }}>คำช่วยจำ</span>
+        {state.status !== "done" && (
+          <button
+            onClick={generate}
+            disabled={state.status === "loading"}
+            style={{
+              marginLeft: "auto",
+              background: C.card,
+              border: `1px solid ${C.cardEdge}`,
+              borderRadius: "4px",
+              padding: "6px 11px",
+              fontSize: "12px",
+              color: C.ink,
+              cursor: state.status === "loading" ? "default" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            {state.status === "loading" ? (
+              <>
+                <Loader2 size={13} style={{ animation: "spin 0.9s linear infinite" }} />
+                กำลังแต่งเรื่อง…
+              </>
+            ) : (
+              "สร้างเรื่องช่วยจำ"
+            )}
+          </button>
+        )}
       </div>
-      <div style={{ fontSize: 12.5, color: "#655D50", lineHeight: 1.65, marginBottom: 11 }}>ให้ AI ช่วยแต่งเรื่องสั้นเชื่อมเสียงอ่าน ความหมาย และส่วนประกอบของคำนี้ เพื่อให้จำได้ง่ายขึ้น</div>
-      <button onClick={createStory} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 13px", border: "none", borderRadius: 4, background: "#9B2924", color: "#F6EFD9", fontSize: 12.5, fontWeight: 700, cursor: loading ? "wait" : "pointer", opacity: loading ? .7 : 1 }}>
-        {loading ? <Loader2 size={15} style={{ animation: "spin .9s linear infinite" }} /> : result ? <RefreshCw size={15} /> : <Sparkles size={15} />}
-        {loading ? "กำลังสร้างเรื่อง…" : result ? "สร้างเรื่องใหม่" : "สร้างเรื่องช่วยจำ"}
-      </button>
-      {error && <div role="alert" style={{ color: "#9B2924", fontSize: 12.5, marginTop: 10, lineHeight: 1.6 }}>{error}</div>}
-      {result && (
-        <div style={{ marginTop: 13, padding: 13, background: "#FFFCF4", border: "1px solid #E1D4B5", borderRadius: 4 }}>
-          <div style={{ fontFamily: "'Noto Serif Thai', serif", fontSize: 16, fontWeight: 800, marginBottom: 7 }}>{result.title || "เรื่องช่วยจำ"}</div>
-          {result.story && <div style={{ fontSize: 13.5, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{result.story}</div>}
-          {result.mnemonic && <div style={{ marginTop: 10, padding: 10, background: "#F2E3BD", borderRadius: 4, fontSize: 12.5, lineHeight: 1.7 }}><strong>เคล็ดจำ:</strong> {result.mnemonic}</div>}
-          {result.breakdown && <div style={{ marginTop: 8, fontSize: 12, color: "#655D50", lineHeight: 1.65 }}>{result.breakdown}</div>}
+
+      {state.status === "error" && (
+        <div role="alert" style={{ fontSize: "12px", color: C.seal, marginTop: "8px" }}>
+          สร้างคำช่วยจำไม่สำเร็จ ลองอีกครั้ง
+        </div>
+      )}
+
+      {state.status === "done" && (
+        <div style={{ marginTop: "10px" }}>
+          {state.data.keyword && (
+            <div style={{ fontSize: "14px", fontWeight: 700, color: C.seal, marginBottom: "6px" }}>
+              {state.data.keyword}
+            </div>
+          )}
+          <div style={{ fontSize: "13px", lineHeight: 1.7, color: C.ink, whiteSpace: "pre-wrap" }}>{state.data.story}</div>
         </div>
       )}
     </div>
